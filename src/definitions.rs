@@ -3,7 +3,7 @@ use ash::vk;
 use ash::vk::PhysicalDevice;
 use ash::{Device, Instance};
 use bitflags::bitflags;
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// Intended usage of memory.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, PartialOrd, Ord)]
@@ -508,7 +508,7 @@ pub struct PoolCreateInfo<'a> {
     /// Structures pointed by this member must remain alive and unchanged for the whole lifetime of the custom pool.
     /// Please note that some structures, e.g. `VkMemoryPriorityAllocateInfoEXT`, `VkMemoryDedicatedAllocateInfoKHR`,
     /// can be attached automatically by this library when using other, more convenient of its features.
-    pub memory_allocate_next: *const std::ffi::c_void,
+    pub memory_allocate_next: *const core::ffi::c_void,
     pub _marker: PhantomData<&'a mut ()>,
 }
 impl<'a> PoolCreateInfo<'a> {
@@ -531,7 +531,7 @@ impl Default for PoolCreateInfo<'_> {
             max_block_count: 0,
             priority: 0.0,
             min_allocation_alignment: 0,
-            memory_allocate_next: std::ptr::null_mut(),
+            memory_allocate_next: core::ptr::null_mut(),
             _marker: PhantomData,
         }
     }
@@ -621,7 +621,7 @@ impl From<&AllocationCreateInfo> for ffi::VmaAllocationCreateInfo {
             requiredFlags: info.required_flags,
             preferredFlags: info.preferred_flags,
             memoryTypeBits: info.memory_type_bits,
-            pool: std::ptr::null_mut(),
+            pool: core::ptr::null_mut(),
             pUserData: info.user_data as _,
             priority: info.priority,
         }
@@ -663,7 +663,7 @@ pub struct AllocationInfo {
     ///
     /// It can change after call to vmaMapMemory(), vmaUnmapMemory().
     /// It can also change after the allocation is moved during defragmentation.
-    pub mapped_data: *mut ::std::os::raw::c_void,
+    pub mapped_data: *mut core::ffi::c_void,
     /// Custom general-purpose pointer that was passed as VmaAllocationCreateInfo::pUserData or set using vmaSetAllocationUserData().
     ///
     /// It can change after call to vmaSetAllocationUserData() for this allocation.

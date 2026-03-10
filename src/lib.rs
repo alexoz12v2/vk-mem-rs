@@ -1,4 +1,8 @@
 //! Easy to use, high performance memory manager for Vulkan.
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+extern crate core;
 
 mod definitions;
 mod defragmentation;
@@ -12,7 +16,6 @@ pub use virtual_block::*;
 
 use ash::prelude::VkResult;
 use ash::vk;
-use std::mem;
 
 pub type RawAllocatorHandle = ffi::VmaAllocator;
 pub type RawAllocationHandle = ffi::VmaAllocation;
@@ -76,14 +79,14 @@ impl Allocator {
     pub unsafe fn new(create_info: AllocatorCreateInfo) -> VkResult<Self> {
         unsafe extern "system" fn get_instance_proc_addr_stub(
             _instance: vk::Instance,
-            _p_name: *const ::std::os::raw::c_char,
+            _p_name: *const core::ffi::c_char
         ) -> vk::PFN_vkVoidFunction {
             panic!("VMA_DYNAMIC_VULKAN_FUNCTIONS is unsupported")
         }
 
         unsafe extern "system" fn get_get_device_proc_stub(
             _device: vk::Device,
-            _p_name: *const ::std::os::raw::c_char,
+            _p_name: *const core::ffi::c_char
         ) -> vk::PFN_vkVoidFunction {
             panic!("VMA_DYNAMIC_VULKAN_FUNCTIONS is unsupported")
         }
@@ -95,25 +98,25 @@ impl Allocator {
             preferredLargeHeapBlockSize: create_info.preferred_large_heap_block_size,
             pAllocationCallbacks: create_info
                 .allocation_callbacks
-                .map(|a| unsafe { std::mem::transmute(a) })
-                .unwrap_or(std::ptr::null()),
+                .map(|a| unsafe { core::mem::transmute(a) })
+                .unwrap_or(core::ptr::null()),
             pDeviceMemoryCallbacks: create_info
                 .device_memory_callbacks
                 .map(|a| a as *const _)
-                .unwrap_or(std::ptr::null()),
+                .unwrap_or(core::ptr::null()),
             pHeapSizeLimit: if create_info.heap_size_limits.is_empty() {
-                std::ptr::null()
+                core::ptr::null()
             } else {
                 create_info.heap_size_limits.as_ptr()
             },
             instance: create_info.instance.handle(),
             vulkanApiVersion: create_info.vulkan_api_version,
-            pVulkanFunctions: std::ptr::null(),
+            pVulkanFunctions: core::ptr::null(),
             pTypeExternalMemoryHandleTypes: if create_info
                 .type_external_memory_handle_types
                 .is_empty()
             {
-                std::ptr::null()
+                core::ptr::null()
             } else {
                 create_info.type_external_memory_handle_types.as_ptr()
             },
@@ -177,14 +180,14 @@ impl Allocator {
                 .device
                 .fp_v1_3()
                 .get_device_image_memory_requirements,
-            vkGetMemoryWin32HandleKHR: std::ptr::null_mut(),
+            vkGetMemoryWin32HandleKHR: core::ptr::null_mut(),
         };
         #[cfg(feature = "loaded")]
         {
             raw_create_info.pVulkanFunctions = &routed_functions;
         }
         unsafe {
-            let mut internal: ffi::VmaAllocator = mem::zeroed();
+            let mut internal: ffi::VmaAllocator = core::mem::zeroed();
             ffi::vmaCreateAllocator(&raw_create_info, &mut internal).result()?;
 
             Ok(Allocator { internal })
@@ -196,7 +199,7 @@ impl Allocator {
     /// Ownership is transferred to the caller.
     pub fn into_raw(self) -> RawAllocatorHandle {
         let handle = self.get_raw();
-        mem::forget(self);
+        core::mem::forget(self);
         handle
     }
 
@@ -232,7 +235,7 @@ impl Allocator {
     /// The allocator fetches `vk::PhysicalDeviceMemoryProperties` from the physical device.
     /// You can get it here, without fetching it again on your own.
     pub unsafe fn get_memory_properties(&self) -> &vk::PhysicalDeviceMemoryProperties {
-        let mut properties: *const vk::PhysicalDeviceMemoryProperties = std::ptr::null();
+        let mut properties: *const vk::PhysicalDeviceMemoryProperties = core::ptr::null();
         ffi::vmaGetMemoryProperties(self.internal, &mut properties);
 
         &*properties
@@ -251,7 +254,7 @@ impl Allocator {
     /// Retrieves statistics from current state of the `Allocator`.
     pub fn calculate_statistics(&self) -> VkResult<ffi::VmaTotalStatistics> {
         unsafe {
-            let mut vma_stats: ffi::VmaTotalStatistics = mem::zeroed();
+            let mut vma_stats: ffi::VmaTotalStatistics = core::mem::zeroed();
             ffi::vmaCalculateStatistics(self.internal, &mut vma_stats);
             Ok(vma_stats)
         }
@@ -264,10 +267,10 @@ impl Allocator {
     ///
     /// Note that when using allocator from multiple threads, returned information may immediately
     /// become outdated.
-    pub fn get_heap_budgets(&self) -> VkResult<Vec<ffi::VmaBudget>> {
+    pub fn get_heap_budgets(&self) -> VkResult<alloc::vec::Vec<ffi::VmaBudget>> {
         unsafe {
             let len = self.get_memory_properties().memory_heap_count as usize;
-            let mut vma_budgets: Vec<ffi::VmaBudget> = Vec::with_capacity(len);
+            let mut vma_budgets: alloc::vec::Vec<ffi::VmaBudget> = alloc::vec::Vec::with_capacity(len);
             ffi::vmaGetHeapBudgets(self.internal, vma_budgets.as_mut_ptr());
             vma_budgets.set_len(len);
             Ok(vma_budgets)
@@ -312,7 +315,7 @@ impl Allocator {
     /// If you just want to check if allocation is not lost, `Allocator::touch_allocation` will work faster.
     pub fn get_allocation_info(&self, allocation: &Allocation) -> AllocationInfo {
         unsafe {
-            let mut allocation_info: ffi::VmaAllocationInfo = mem::zeroed();
+            let mut allocation_info: ffi::VmaAllocationInfo = core::mem::zeroed();
             ffi::vmaGetAllocationInfo(self.internal, allocation.0, &mut allocation_info);
             allocation_info.into()
         }
@@ -325,7 +328,7 @@ impl Allocator {
     /// It can be useful e.g. for interop with OpenGL.
     pub fn get_allocation_info2(&self, allocation: &Allocation) -> AllocationInfo2 {
         unsafe {
-            let mut allocation_info: ffi::VmaAllocationInfo2 = mem::zeroed();
+            let mut allocation_info: ffi::VmaAllocationInfo2 = core::mem::zeroed();
             ffi::vmaGetAllocationInfo2(self.internal, allocation.0, &mut allocation_info);
             allocation_info.into()
         }
@@ -346,7 +349,7 @@ impl Allocator {
     pub unsafe fn set_allocation_user_data(
         &self,
         allocation: &mut Allocation,
-        user_data: *mut ::std::os::raw::c_void,
+        user_data: *mut core::ffi::c_void
     ) {
         ffi::vmaSetAllocationUserData(self.internal, allocation.0, user_data);
     }
@@ -386,7 +389,7 @@ impl Allocator {
     /// This function always fails when called for allocation that was created with
     /// `AllocationCreateFlags::CAN_BECOME_LOST` flag. Such allocations cannot be mapped.
     pub unsafe fn map_memory(&self, allocation: &mut Allocation) -> VkResult<*mut u8> {
-        let mut mapped_data: *mut ::std::os::raw::c_void = ::std::ptr::null_mut();
+        let mut mapped_data: *mut core::ffi::c_void = core::ptr::null_mut();
         ffi::vmaMapMemory(self.internal, allocation.0, &mut mapped_data).result()?;
 
         Ok(mapped_data as *mut u8)
@@ -440,7 +443,7 @@ impl Allocator {
     ///
     /// - `src_allocation_offset` is relative to the contents of given src_allocation. If you mean whole allocation, you should pass 0. Do not pass allocation's offset within device memory block as this parameter!
     pub unsafe fn copy_allocation_to_memory(&self, src_allocation: &Allocation, src_allocation_offset: vk::DeviceSize, dst_ref: &mut [u8]) -> VkResult<()> {
-        ffi::vmaCopyAllocationToMemory(self.internal, src_allocation.0, src_allocation_offset, dst_ref.as_mut_ptr() as *mut std::ffi::c_void, dst_ref.len() as vk::DeviceSize).result()
+        ffi::vmaCopyAllocationToMemory(self.internal, src_allocation.0, src_allocation_offset, dst_ref.as_mut_ptr() as *mut core::ffi::c_void, dst_ref.len() as vk::DeviceSize).result()
     }
 
     /// Maps the allocation temporarily if needed, copies data from specified host pointer to it, and flushes the memory from the host caches if needed.
@@ -450,7 +453,7 @@ impl Allocator {
     ///
     /// - `dst_allocation_offset` is relative to the contents of given dstAllocation. If you mean whole allocation, you should pass 0. Do not pass allocation's offset within device memory block this parameter!
     pub unsafe fn copy_memory_to_allocation(&self, dst_allocation: &Allocation, src_data: &[u8], dst_allocation_offset: vk::DeviceSize) -> VkResult<()> {
-        ffi::vmaCopyMemoryToAllocation(self.internal, src_data.as_ptr() as *const std::ffi::c_void, dst_allocation.0, dst_allocation_offset, src_data.len() as vk::DeviceSize).result()
+        ffi::vmaCopyMemoryToAllocation(self.internal, src_data.as_ptr() as *const core::ffi::c_void, dst_allocation.0, dst_allocation_offset, src_data.len() as vk::DeviceSize).result()
     }
 
     /// Checks magic number in margins around all allocations in given memory types (in both default and custom pools) in search for corruptions.
@@ -507,7 +510,7 @@ impl Allocator {
         allocation: &Allocation,
         allocation_local_offset: vk::DeviceSize,
         buffer: vk::Buffer,
-        next: *const ::std::os::raw::c_void,
+        next: *const core::ffi::c_void,
     ) -> VkResult<()> {
         ffi::vmaBindBufferMemory2(
             self.internal,
@@ -556,7 +559,7 @@ impl Allocator {
         allocation: &Allocation,
         allocation_local_offset: vk::DeviceSize,
         image: vk::Image,
-        next: *const ::std::os::raw::c_void,
+        next: *const core::ffi::c_void,
     ) -> VkResult<()> {
         ffi::vmaBindImageMemory2(
             self.internal,
@@ -609,13 +612,13 @@ impl Allocator {
         offsets: Option<&[vk::DeviceSize]>,
         sizes: Option<&[vk::DeviceSize]>,
     ) -> VkResult<()> {
-        let allocations: Vec<ffi::VmaAllocation> = allocations.into_iter().map(|a| a.0).collect();
+        let allocations: alloc::vec::Vec<ffi::VmaAllocation> = allocations.into_iter().map(|a| a.0).collect();
         ffi::vmaFlushAllocations(
             self.internal,
             allocations.len() as u32,
             allocations.as_ptr() as *mut _,
-            offsets.map_or(std::ptr::null(), |offsets| offsets.as_ptr()),
-            sizes.map_or(std::ptr::null(), |sizes| sizes.as_ptr()),
+            offsets.map_or(core::ptr::null(), |offsets| offsets.as_ptr()),
+            sizes.map_or(core::ptr::null(), |sizes| sizes.as_ptr()),
         )
         .result()
     }
@@ -634,13 +637,13 @@ impl Allocator {
         offsets: Option<&[vk::DeviceSize]>,
         sizes: Option<&[vk::DeviceSize]>,
     ) -> VkResult<()> {
-        let allocations: Vec<ffi::VmaAllocation> = allocations.into_iter().map(|a| a.0).collect();
+        let allocations: alloc::vec::Vec<ffi::VmaAllocation> = allocations.into_iter().map(|a| a.0).collect();
         ffi::vmaInvalidateAllocations(
             self.internal,
             allocations.len() as u32,
             allocations.as_ptr() as *mut _,
-            offsets.map_or(std::ptr::null(), |offsets| offsets.as_ptr()),
-            sizes.map_or(std::ptr::null(), |sizes| sizes.as_ptr()),
+            offsets.map_or(core::ptr::null(), |offsets| offsets.as_ptr()),
+            sizes.map_or(core::ptr::null(), |sizes| sizes.as_ptr()),
         )
         .result()
     }
@@ -651,7 +654,7 @@ impl Drop for Allocator {
     fn drop(&mut self) {
         unsafe {
             ffi::vmaDestroyAllocator(self.internal);
-            self.internal = std::ptr::null_mut();
+            self.internal = core::ptr::null_mut();
         }
     }
 }

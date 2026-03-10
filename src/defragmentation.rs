@@ -13,7 +13,7 @@ pub struct DefragmentationContext<'a> {
 impl<'a> Drop for DefragmentationContext<'a> {
     fn drop(&mut self) {
         unsafe {
-            ffi::vmaEndDefragmentation(self.allocator.internal, self.raw, std::ptr::null_mut());
+            ffi::vmaEndDefragmentation(self.allocator.internal, self.raw, core::ptr::null_mut());
         }
     }
 }
@@ -30,7 +30,7 @@ impl<'a> DefragmentationContext<'a> {
         unsafe {
             ffi::vmaEndDefragmentation(self.allocator.internal, self.raw, &mut stats);
         }
-        std::mem::forget(self);
+        core::mem::forget(self);
         stats
     }
 
@@ -38,7 +38,7 @@ impl<'a> DefragmentationContext<'a> {
     pub fn begin_pass(&self, mover: impl FnOnce(&mut [DefragmentationMove]) -> ()) -> bool {
         let mut pass_info = ffi::VmaDefragmentationPassMoveInfo {
             moveCount: 0,
-            pMoves: std::ptr::null_mut(),
+            pMoves: core::ptr::null_mut(),
         };
         let result = unsafe {
             ffi::vmaBeginDefragmentationPass(self.allocator.internal, self.raw, &mut pass_info)
@@ -48,7 +48,7 @@ impl<'a> DefragmentationContext<'a> {
         }
         debug_assert_eq!(result, vk::Result::INCOMPLETE);
         let moves = unsafe {
-            std::slice::from_raw_parts_mut(pass_info.pMoves, pass_info.moveCount as usize)
+            core::slice::from_raw_parts_mut(pass_info.pMoves, pass_info.moveCount as usize)
         };
         mover(moves);
 
@@ -69,8 +69,8 @@ impl Allocator {
     pub unsafe fn begin_defragmentation(
         &self,
         info: &ffi::VmaDefragmentationInfo,
-    ) -> VkResult<DefragmentationContext> {
-        let mut context: ffi::VmaDefragmentationContext = std::ptr::null_mut();
+    ) -> VkResult<DefragmentationContext<'_>> {
+        let mut context: ffi::VmaDefragmentationContext = core::ptr::null_mut();
 
         ffi::vmaBeginDefragmentation(self.internal, info, &mut context).result()?;
 

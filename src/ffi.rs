@@ -229,23 +229,23 @@ pub struct VmaVirtualBlock_T {
 #[doc = " \\struct VmaVirtualBlock\n\\brief Handle to a virtual block object that allows to use core allocation algorithm without allocating any real GPU memory.\n\nFill in #VmaVirtualBlockCreateInfo structure and use vmaCreateVirtualBlock() to create it. Use vmaDestroyVirtualBlock() to destroy it.\nFor more information, see documentation chapter \\ref virtual_allocator.\n\nThis object is not thread-safe - should not be used from multiple threads simultaneously, must be synchronized externally."]
 pub type VmaVirtualBlock = *mut VmaVirtualBlock_T;
 #[doc = " Callback function called after successful vkAllocateMemory."]
-pub type PFN_vmaAllocateDeviceMemoryFunction = ::std::option::Option<
+pub type PFN_vmaAllocateDeviceMemoryFunction = core::option::Option<
     unsafe extern "C" fn(
         allocator: VmaAllocator,
         memoryType: u32,
         memory: DeviceMemory,
         size: DeviceSize,
-        pUserData: *mut ::std::os::raw::c_void,
+        pUserData: *mut core::ffi::c_void,
     ),
 >;
 #[doc = " Callback function called before vkFreeMemory."]
-pub type PFN_vmaFreeDeviceMemoryFunction = ::std::option::Option<
+pub type PFN_vmaFreeDeviceMemoryFunction = core::option::Option<
     unsafe extern "C" fn(
         allocator: VmaAllocator,
         memoryType: u32,
         memory: DeviceMemory,
         size: DeviceSize,
-        pUserData: *mut ::std::os::raw::c_void,
+        pUserData: *mut core::ffi::c_void,
     ),
 >;
 #[doc = " \\brief Set of callbacks that the library will call for `vkAllocateMemory` and `vkFreeMemory`.\n\nProvided for informative purpose, e.g. to gather statistics about number of\nallocations or total amount of memory allocated in Vulkan.\n\nUsed in VmaAllocatorCreateInfo::pDeviceMemoryCallbacks."]
@@ -257,7 +257,7 @@ pub struct VmaDeviceMemoryCallbacks {
     #[doc = " Optional, can be null."]
     pub pfnFree: PFN_vmaFreeDeviceMemoryFunction,
     #[doc = " Optional, can be null."]
-    pub pUserData: *mut ::std::os::raw::c_void,
+    pub pUserData: *mut core::ffi::c_void,
 }
 #[doc = " \\brief Pointers to some Vulkan functions - a subset used by the library.\n\nUsed in VmaAllocatorCreateInfo::pVulkanFunctions."]
 #[repr(C)]
@@ -297,7 +297,7 @@ pub struct VmaVulkanFunctions {
     pub vkGetDeviceBufferMemoryRequirements: PFN_vkGetDeviceBufferMemoryRequirements,
     #[doc = " Fetch from \"vkGetDeviceImageMemoryRequirements\" on Vulkan >= 1.3, but you can also fetch it from \"vkGetDeviceImageMemoryRequirementsKHR\" if you enabled extension VK_KHR_maintenance4."]
     pub vkGetDeviceImageMemoryRequirements: PFN_vkGetDeviceImageMemoryRequirements,
-    pub vkGetMemoryWin32HandleKHR: *mut ::std::os::raw::c_void,
+    pub vkGetMemoryWin32HandleKHR: *mut core::ffi::c_void,
 }
 #[doc = " Description of a Allocator to be created."]
 #[repr(C)]
@@ -396,7 +396,7 @@ pub struct VmaAllocationCreateInfo {
     #[doc = " \\brief Pool that this allocation should be created in.\n\nLeave `VK_NULL_HANDLE` to allocate from default pool. If not null, members:\n`usage`, `requiredFlags`, `preferredFlags`, `memoryTypeBits` are ignored."]
     pub pool: VmaPool,
     #[doc = " \\brief Custom general-purpose pointer that will be stored in #VmaAllocation, can be read as VmaAllocationInfo::pUserData and changed using vmaSetAllocationUserData().\n\nIf #VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT is used, it must be either\nnull or pointer to a null-terminated string. The string will be then copied to\ninternal buffer, so it doesn't need to be valid after allocation call."]
-    pub pUserData: *mut ::std::os::raw::c_void,
+    pub pUserData: *mut core::ffi::c_void,
     #[doc = " \\brief A floating-point value between 0 and 1, indicating the priority of the allocation relative to other memory allocations.\n\nIt is used only when #VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT flag was used during creation of the #VmaAllocator object\nand this allocation ends up as dedicated or is explicitly forced as dedicated using #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.\nOtherwise, it has the priority of a memory block where it is placed and this variable is ignored."]
     pub priority: f32,
 }
@@ -418,7 +418,7 @@ pub struct VmaPoolCreateInfo {
     #[doc = " \\brief Additional minimum alignment to be used for all allocations created from this pool. Can be 0.\n\nLeave 0 (default) not to impose any additional alignment. If not 0, it must be a power of two.\nIt can be useful in cases where alignment returned by Vulkan by functions like `vkGetBufferMemoryRequirements` is not enough,\ne.g. when doing interop with OpenGL."]
     pub minAllocationAlignment: DeviceSize,
     #[doc = " \\brief Additional `pNext` chain to be attached to `VkMemoryAllocateInfo` used for every allocation made by this pool. Optional.\n\nOptional, can be null. If not null, it must point to a `pNext` chain of structures that can be attached to `VkMemoryAllocateInfo`.\nIt can be useful for special needs such as adding `VkExportMemoryAllocateInfoKHR`.\nStructures pointed by this member must remain alive and unchanged for the whole lifetime of the custom pool.\n\nPlease note that some structures, e.g. `VkMemoryPriorityAllocateInfoEXT`, `VkMemoryDedicatedAllocateInfoKHR`,\ncan be attached automatically by this library when using other, more convenient of its features."]
-    pub pMemoryAllocateNext: *mut ::std::os::raw::c_void,
+    pub pMemoryAllocateNext: *mut core::ffi::c_void,
 }
 #[doc = "Parameters of #VmaAllocation objects, that can be retrieved using function vmaGetAllocationInfo().\n\nThere is also an extended version of this structure that carries additional parameters: #VmaAllocationInfo2."]
 #[repr(C)]
@@ -433,11 +433,11 @@ pub struct VmaAllocationInfo {
     #[doc = " \\brief Size of this allocation, in bytes.\n\nIt never changes.\n\n\\note Allocation size returned in this variable may be greater than the size\nrequested for the resource e.g. as `VkBufferCreateInfo::size`. Whole size of the\nallocation is accessible for operations on memory e.g. using a pointer after\nmapping with vmaMapMemory(), but operations on the resource e.g. using\n`vkCmdCopyBuffer` must be limited to the size of the resource."]
     pub size: DeviceSize,
     #[doc = " \\brief Pointer to the beginning of this allocation as mapped data.\n\nIf the allocation hasn't been mapped using vmaMapMemory() and hasn't been\ncreated with #VMA_ALLOCATION_CREATE_MAPPED_BIT flag, this value is null.\n\nIt can change after call to vmaMapMemory(), vmaUnmapMemory().\nIt can also change after the allocation is moved during \\ref defragmentation."]
-    pub pMappedData: *mut ::std::os::raw::c_void,
+    pub pMappedData: *mut core::ffi::c_void,
     #[doc = " \\brief Custom general-purpose pointer that was passed as VmaAllocationCreateInfo::pUserData or set using vmaSetAllocationUserData().\n\nIt can change after call to vmaSetAllocationUserData() for this allocation."]
-    pub pUserData: *mut ::std::os::raw::c_void,
+    pub pUserData: *mut core::ffi::c_void,
     #[doc = " \\brief Custom allocation name that was set with vmaSetAllocationName().\n\nIt can change after call to vmaSetAllocationName() for this allocation.\n\nAnother way to set custom name is to pass it in VmaAllocationCreateInfo::pUserData with\nadditional flag #VMA_ALLOCATION_CREATE_USER_DATA_COPY_STRING_BIT set [DEPRECATED]."]
-    pub pName: *const ::std::os::raw::c_char,
+    pub pName: *const core::ffi::c_char,
 }
 #[doc = " Extended parameters of a #VmaAllocation object that can be retrieved using function vmaGetAllocationInfo2()."]
 #[repr(C)]
@@ -452,7 +452,7 @@ pub struct VmaAllocationInfo2 {
 }
 #[doc = " Callback function called during vmaBeginDefragmentation() to check custom criterion about ending current defragmentation pass.\n\nShould return true if the defragmentation needs to stop current pass."]
 pub type PFN_vmaCheckDefragmentationBreakFunction =
-    ::std::option::Option<unsafe extern "C" fn(pUserData: *mut ::std::os::raw::c_void) -> Bool32>;
+    core::option::Option<unsafe extern "C" fn(pUserData: *mut core::ffi::c_void) -> Bool32>;
 #[doc = " \\brief Parameters for defragmentation.\n\nTo be used with function vmaBeginDefragmentation()."]
 #[repr(C)]
 pub struct VmaDefragmentationInfo {
@@ -467,7 +467,7 @@ pub struct VmaDefragmentationInfo {
     #[doc = " \\brief Optional custom callback for stopping vmaBeginDefragmentation().\n\nHave to return true for breaking current defragmentation pass."]
     pub pfnBreakCallback: PFN_vmaCheckDefragmentationBreakFunction,
     #[doc = " \\brief Optional data to pass to custom callback for stopping pass of defragmentation."]
-    pub pBreakCallbackUserData: *mut ::std::os::raw::c_void,
+    pub pBreakCallbackUserData: *mut core::ffi::c_void,
 }
 #[doc = " Single move of an allocation to be done for defragmentation."]
 #[repr(C)]
@@ -522,7 +522,7 @@ pub struct VmaVirtualAllocationCreateInfo {
     #[doc = " \\brief Use combination of #VmaVirtualAllocationCreateFlagBits."]
     pub flags: VmaVirtualAllocationCreateFlags,
     #[doc = " \\brief Custom pointer to be associated with the allocation. Optional.\n\nIt can be any value and can be used for user-defined purposes. It can be fetched or changed later."]
-    pub pUserData: *mut ::std::os::raw::c_void,
+    pub pUserData: *mut core::ffi::c_void,
 }
 #[doc = " Parameters of an existing virtual allocation, returned by vmaGetVirtualAllocationInfo()."]
 #[repr(C)]
@@ -532,7 +532,7 @@ pub struct VmaVirtualAllocationInfo {
     #[doc = " \\brief Size of the allocation.\n\nSame value as passed in VmaVirtualAllocationCreateInfo::size."]
     pub size: DeviceSize,
     #[doc = " \\brief Custom pointer associated with the allocation.\n\nSame value as passed in VmaVirtualAllocationCreateInfo::pUserData or to vmaSetVirtualAllocationUserData()."]
-    pub pUserData: *mut ::std::os::raw::c_void,
+    pub pUserData: *mut core::ffi::c_void,
 }
 extern "C" {
     #[doc = " Creates #VmaAllocator object."]
@@ -647,7 +647,7 @@ extern "C" {
     pub fn vmaGetPoolName(
         allocator: VmaAllocator,
         pool: VmaPool,
-        ppName: *mut *const ::std::os::raw::c_char,
+        ppName: *mut *const core::ffi::c_char,
     );
 }
 extern "C" {
@@ -655,7 +655,7 @@ extern "C" {
     pub fn vmaSetPoolName(
         allocator: VmaAllocator,
         pool: VmaPool,
-        pName: *const ::std::os::raw::c_char,
+        pName: *const core::ffi::c_char,
     );
 }
 extern "C" {
@@ -732,7 +732,7 @@ extern "C" {
     pub fn vmaSetAllocationUserData(
         allocator: VmaAllocator,
         allocation: VmaAllocation,
-        pUserData: *mut ::std::os::raw::c_void,
+        pUserData: *mut core::ffi::c_void,
     );
 }
 extern "C" {
@@ -740,7 +740,7 @@ extern "C" {
     pub fn vmaSetAllocationName(
         allocator: VmaAllocator,
         allocation: VmaAllocation,
-        pName: *const ::std::os::raw::c_char,
+        pName: *const core::ffi::c_char,
     );
 }
 extern "C" {
@@ -756,7 +756,7 @@ extern "C" {
     pub fn vmaMapMemory(
         allocator: VmaAllocator,
         allocation: VmaAllocation,
-        ppData: *mut *mut ::std::os::raw::c_void,
+        ppData: *mut *mut core::ffi::c_void,
     ) -> Result;
 }
 extern "C" {
@@ -805,7 +805,7 @@ extern "C" {
     #[doc = " \\brief Maps the allocation temporarily if needed, copies data from specified host pointer to it, and flushes the memory from the host caches if needed.\n\n\\param allocator\n\\param pSrcHostPointer Pointer to the host data that become source of the copy.\n\\param dstAllocation   Handle to the allocation that becomes destination of the copy.\n\\param dstAllocationLocalOffset  Offset within `dstAllocation` where to write copied data, in bytes.\n\\param size            Number of bytes to copy.\n\nThis is a convenience function that allows to copy data from a host pointer to an allocation easily.\nSame behavior can be achieved by calling vmaMapMemory(), `memcpy()`, vmaUnmapMemory(), vmaFlushAllocation().\n\nThis function can be called only for allocations created in a memory type that has `VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` flag.\nIt can be ensured e.g. by using #VMA_MEMORY_USAGE_AUTO and #VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT or\n#VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT.\nOtherwise, the function will fail and generate a Validation Layers error.\n\n`dstAllocationLocalOffset` is relative to the contents of given `dstAllocation`.\nIf you mean whole allocation, you should pass 0.\nDo not pass allocation's offset within device memory block this parameter!"]
     pub fn vmaCopyMemoryToAllocation(
         allocator: VmaAllocator,
-        pSrcHostPointer: *const ::std::os::raw::c_void,
+        pSrcHostPointer: *const core::ffi::c_void,
         dstAllocation: VmaAllocation,
         dstAllocationLocalOffset: DeviceSize,
         size: DeviceSize,
@@ -817,7 +817,7 @@ extern "C" {
         allocator: VmaAllocator,
         srcAllocation: VmaAllocation,
         srcAllocationLocalOffset: DeviceSize,
-        pDstHostPointer: *mut ::std::os::raw::c_void,
+        pDstHostPointer: *mut core::ffi::c_void,
         size: DeviceSize,
     ) -> Result;
 }
@@ -872,7 +872,7 @@ extern "C" {
         allocation: VmaAllocation,
         allocationLocalOffset: DeviceSize,
         buffer: Buffer,
-        pNext: *const ::std::os::raw::c_void,
+        pNext: *const core::ffi::c_void,
     ) -> Result;
 }
 extern "C" {
@@ -890,7 +890,7 @@ extern "C" {
         allocation: VmaAllocation,
         allocationLocalOffset: DeviceSize,
         image: Image,
-        pNext: *const ::std::os::raw::c_void,
+        pNext: *const core::ffi::c_void,
     ) -> Result;
 }
 extern "C" {
@@ -1018,7 +1018,7 @@ extern "C" {
     pub fn vmaSetVirtualAllocationUserData(
         virtualBlock: VmaVirtualBlock,
         allocation: VmaVirtualAllocation,
-        pUserData: *mut ::std::os::raw::c_void,
+        pUserData: *mut core::ffi::c_void,
     );
 }
 extern "C" {
@@ -1036,7 +1036,7 @@ extern "C" {
     #[doc = " \\brief Builds and returns a null-terminated string in JSON format with information about given #VmaVirtualBlock.\n\\param virtualBlock Virtual block.\n\\param[out] ppStatsString Returned string.\n\\param detailedMap Pass `VK_FALSE` to only obtain statistics as returned by vmaCalculateVirtualBlockStatistics(). Pass `VK_TRUE` to also obtain full list of allocations and free spaces.\n\nReturned string must be freed using vmaFreeVirtualBlockStatsString()."]
     pub fn vmaBuildVirtualBlockStatsString(
         virtualBlock: VmaVirtualBlock,
-        ppStatsString: *mut *mut ::std::os::raw::c_char,
+        ppStatsString: *mut *mut core::ffi::c_char,
         detailedMap: Bool32,
     );
 }
@@ -1044,17 +1044,17 @@ extern "C" {
     #[doc = " Frees a string returned by vmaBuildVirtualBlockStatsString()."]
     pub fn vmaFreeVirtualBlockStatsString(
         virtualBlock: VmaVirtualBlock,
-        pStatsString: *mut ::std::os::raw::c_char,
+        pStatsString: *mut core::ffi::c_char,
     );
 }
 extern "C" {
     #[doc = " \\brief Builds and returns statistics as a null-terminated string in JSON format.\n\\param allocator\n\\param[out] ppStatsString Must be freed using vmaFreeStatsString() function.\n\\param detailedMap"]
     pub fn vmaBuildStatsString(
         allocator: VmaAllocator,
-        ppStatsString: *mut *mut ::std::os::raw::c_char,
+        ppStatsString: *mut *mut core::ffi::c_char,
         detailedMap: Bool32,
     );
 }
 extern "C" {
-    pub fn vmaFreeStatsString(allocator: VmaAllocator, pStatsString: *mut ::std::os::raw::c_char);
+    pub fn vmaFreeStatsString(allocator: VmaAllocator, pStatsString: *mut core::ffi::c_char);
 }

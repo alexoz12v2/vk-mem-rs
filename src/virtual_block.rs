@@ -2,7 +2,6 @@ use crate::ffi;
 use crate::RawVirtualAllocationHandle;
 use crate::RawVirtualBlockHandle;
 use ash::prelude::VkResult;
-use std::mem;
 
 use crate::definitions::*;
 
@@ -45,14 +44,14 @@ impl VirtualBlock {
     /// Creates new VirtualBlock object.
     pub fn new(create_info: VirtualBlockCreateInfo) -> VkResult<Self> {
         unsafe {
-            let mut internal: ffi::VmaVirtualBlock = mem::zeroed();
+            let mut internal: ffi::VmaVirtualBlock = core::mem::zeroed();
             let raw_info = ffi::VmaVirtualBlockCreateInfo {
                 size: create_info.size,
                 flags: create_info.flags.bits(),
                 pAllocationCallbacks: create_info
                     .allocation_callbacks
-                    .map(|a| std::mem::transmute(a))
-                    .unwrap_or(std::ptr::null()),
+                    .map(|a| core::mem::transmute(a))
+                    .unwrap_or(core::ptr::null()),
             };
             ffi::vmaCreateVirtualBlock(&raw_info, &mut internal).result()?;
 
@@ -65,7 +64,7 @@ impl VirtualBlock {
     /// Ownership is transferred to the caller.
     pub fn into_raw(self) -> RawVirtualBlockHandle {
         let handle = self.get_raw();
-        mem::forget(self);
+        core::mem::forget(self);
         handle
     }
 
@@ -97,7 +96,7 @@ impl VirtualBlock {
         allocation_info: VirtualAllocationCreateInfo,
     ) -> VkResult<(VirtualAllocation, u64)> {
         let create_info: ffi::VmaVirtualAllocationCreateInfo = allocation_info.into();
-        let mut allocation: ffi::VmaVirtualAllocation = std::mem::zeroed();
+        let mut allocation: ffi::VmaVirtualAllocation = core::mem::zeroed();
         let mut offset = 0;
         ffi::vmaVirtualAllocate(self.internal, &create_info, &mut allocation, &mut offset)
             .result()?;
@@ -129,7 +128,7 @@ impl VirtualBlock {
         &self,
         allocation: &VirtualAllocation,
     ) -> VkResult<VirtualAllocationInfo> {
-        let mut allocation_info: ffi::VmaVirtualAllocationInfo = mem::zeroed();
+        let mut allocation_info: ffi::VmaVirtualAllocationInfo = core::mem::zeroed();
         ffi::vmaGetVirtualAllocationInfo(self.internal, allocation.0, &mut allocation_info);
         Ok(allocation_info.into())
     }
@@ -138,7 +137,7 @@ impl VirtualBlock {
     pub unsafe fn set_allocation_user_data(
         &self,
         allocation: &mut VirtualAllocation,
-        user_data: *mut ::std::os::raw::c_void,
+        user_data: *mut core::ffi::c_void,
     ) {
         ffi::vmaSetVirtualAllocationUserData(self.internal, allocation.0, user_data);
     }
@@ -149,7 +148,7 @@ impl Drop for VirtualBlock {
     fn drop(&mut self) {
         unsafe {
             ffi::vmaDestroyVirtualBlock(self.internal);
-            self.internal = std::ptr::null_mut();
+            self.internal = core::ptr::null_mut();
         }
     }
 }
