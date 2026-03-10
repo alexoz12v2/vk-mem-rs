@@ -277,6 +277,11 @@ impl Allocator {
         }
     }
 
+    /// Safety: vma_budgets.len() should be the memory_heap_count
+    pub unsafe fn get_heap_budgets_cached(&self, vma_budgets: &mut [ffi::VmaBudget]) {
+        unsafe { ffi::vmaGetHeapBudgets(self.internal, vma_budgets.as_mut_ptr()) };
+    }
+
     /// Frees memory previously allocated using `Allocator::allocate_memory`,
     /// `Allocator::allocate_memory_for_buffer`, or `Allocator::allocate_memory_for_image`.
     pub unsafe fn free_memory(&self, allocation: &mut Allocation) {
