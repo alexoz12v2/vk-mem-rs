@@ -2,12 +2,11 @@
 
 mod definitions;
 mod defragmentation;
-mod ffi;
+pub mod ffi;
 mod pool;
 mod virtual_block;
 pub use definitions::*;
 pub use defragmentation::*;
-pub use ffi::{VmaDetailedStatistics, VmaStatistics};
 pub use pool::*;
 pub use virtual_block::*;
 
