@@ -122,7 +122,7 @@ impl Allocator {
             },
         };
 
-        #[cfg(feature = "loaded")]
+        #[cfg(any(feature = "loaded", feature = "force-loaded"))]
         let routed_functions = ffi::VmaVulkanFunctions {
             vkGetInstanceProcAddr: get_instance_proc_addr_stub,
             vkGetDeviceProcAddr: get_get_device_proc_stub,
@@ -182,7 +182,7 @@ impl Allocator {
                 .get_device_image_memory_requirements,
             vkGetMemoryWin32HandleKHR: core::ptr::null_mut(),
         };
-        #[cfg(feature = "loaded")]
+        #[cfg(any(feature = "loaded", feature = "force-loaded"))]
         {
             raw_create_info.pVulkanFunctions = &routed_functions;
         }
