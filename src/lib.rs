@@ -234,11 +234,11 @@ impl Allocator {
 
     /// The allocator fetches `vk::PhysicalDeviceMemoryProperties` from the physical device.
     /// You can get it here, without fetching it again on your own.
-    pub unsafe fn get_memory_properties(&self) -> &vk::PhysicalDeviceMemoryProperties {
+    pub unsafe fn get_memory_properties(&self) -> vk::PhysicalDeviceMemoryProperties {
         let mut properties: *const vk::PhysicalDeviceMemoryProperties = core::ptr::null();
         ffi::vmaGetMemoryProperties(self.internal, &mut properties);
 
-        &*properties
+        *properties
     }
 
     /// Sets index of the current frame.
@@ -651,6 +651,12 @@ impl Allocator {
             sizes.map_or(core::ptr::null(), |sizes| sizes.as_ptr()),
         )
         .result()
+    }
+
+    pub unsafe fn get_allocation_memory_properties(&self, allocation: &Allocation) -> vk::MemoryPropertyFlags {
+        let mut flags: vk::MemoryPropertyFlags = core::mem::zeroed();
+        ffi::vmaGetAllocationMemoryProperties(self.internal, allocation.0, core::ptr::from_mut(&mut flags));
+        flags
     }
 }
 

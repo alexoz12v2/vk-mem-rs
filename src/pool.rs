@@ -13,6 +13,7 @@ use alloc::{
 use crate::ffi;
 use crate::Allocation;
 use crate::AllocationCreateInfo;
+use crate::AllocationInfo;
 use crate::Allocator;
 use crate::PoolCreateInfo;
 use crate::RawPoolHandle;
@@ -399,6 +400,30 @@ pub trait Alloc {
 
         Ok((buffer, Allocation(allocation)))
     }
+
+    unsafe fn create_buffer_get_info(
+        &self,
+        buffer_info: &ash::vk::BufferCreateInfo,
+        create_info: &AllocationCreateInfo,
+    ) -> VkResult<(ash::vk::Buffer, Allocation, AllocationInfo)> {
+        let mut create_info: ffi::VmaAllocationCreateInfo = create_info.into();
+        create_info.pool = self.pool();
+        let mut buffer = vk::Buffer::null();
+        let mut allocation: ffi::VmaAllocation = core::mem::zeroed();
+        let mut alloc_info: ffi::VmaAllocationInfo = core::mem::zeroed();
+        ffi::vmaCreateBuffer(
+            self.allocator().internal,
+            &*buffer_info,
+            &create_info,
+            &mut buffer,
+            &mut allocation,
+            core::ptr::from_mut(&mut alloc_info),
+        )
+        .result()?;
+
+        Ok((buffer, Allocation(allocation), AllocationInfo::from(alloc_info)))
+    }
+
     /// brief Creates a buffer with additional minimum alignment.
     ///
     /// Similar to vmaCreateBuffer() but provides additional parameter `minAlignment` which allows to specify custom,
