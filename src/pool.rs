@@ -490,6 +490,29 @@ pub trait Alloc {
 
         Ok((image, Allocation(allocation)))
     }
+
+    unsafe fn create_image_with_alloc_info(
+        &self,
+        image_info: &ash::vk::ImageCreateInfo,
+        create_info: &AllocationCreateInfo,
+    ) -> VkResult<(ash::vk::Image, Allocation, AllocationInfo)> {
+        let mut create_info: ffi::VmaAllocationCreateInfo = create_info.into();
+        create_info.pool = self.pool();
+        let mut image = vk::Image::null();
+        let mut allocation: ffi::VmaAllocation = core::mem::zeroed();
+        let mut allocation_info: ffi::VmaAllocationInfo = core::mem::zeroed();
+        ffi::vmaCreateImage(
+            self.allocator().internal,
+            &*image_info,
+            &create_info,
+            &mut image,
+            &mut allocation,
+            core::ptr::from_mut(&mut allocation_info),
+        )
+        .result()?;
+
+        Ok((image, Allocation(allocation), AllocationInfo::from(allocation_info)))
+    }
 }
 
 impl<A: Deref<Target = Allocator>> Alloc for AllocatorPool<A> {
