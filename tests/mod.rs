@@ -139,7 +139,7 @@ impl TestHarness {
     pub fn create_allocator(&self) -> vk_mem::Allocator {
         let create_info =
             vk_mem::AllocatorCreateInfo::new(&self.instance, &self.device, self.physical_device);
-        vk_mem::Allocator::new(create_info).unwrap()
+        unsafe { vk_mem::Allocator::new(create_info).unwrap() }
     }
 }
 
@@ -359,6 +359,121 @@ fn virtual_allocation_user_data() {
         let queried_user_data = std::slice::from_raw_parts(queried_info.user_data as *const i32, 5);
         assert_eq!(queried_user_data, &*user_data);
         virtual_block.free(&mut virtual_alloc_0);
+    }
+}
+
+#[test]
+fn test_allocator_pool_statistics() {
+    let harness = TestHarness::new();
+    let allocator = harness.create_allocator();
+    let allocator = Arc::new(allocator);
+
+    let pool_info = vk_mem::PoolCreateInfo {
+        memory_type_index: 0,
+        block_size: 64 * 1024 * 1024,
+        max_block_count: 1,
+        ..Default::default()
+    };
+
+    let pool = allocator.create_pool(&pool_info).unwrap();
+
+    let stats = pool.get_statistics().unwrap();
+    assert_eq!(stats.blockCount, 0);
+
+    let detailed_stats = pool.calculate_statistics().unwrap();
+    assert_eq!(detailed_stats.statistics.blockCount, 0);
+    
+    // Create an allocation to test again
+    let buffer_info = ash::vk::BufferCreateInfo::default()
+        .size(1024)
+        .usage(ash::vk::BufferUsageFlags::UNIFORM_BUFFER);
+    let allocation_info = vk_mem::AllocationCreateInfo {
+        usage: vk_mem::MemoryUsage::Auto,
+        ..Default::default()
+    };
+    
+    unsafe {
+      let (buffer, mut allocation) = pool.create_buffer(&buffer_info, &allocation_info).unwrap();
+      
+      let detailed_stats2 = pool.calculate_statistics().unwrap();
+      assert_eq!(detailed_stats2.statistics.blockCount, 1);
+      assert_eq!(detailed_stats2.statistics.allocationCount, 1);
+      
+      allocator.destroy_buffer(buffer, &mut allocation);
+    }
+}
+
+#[test]
+fn test_allocator_pool_name() {
+    let harness = TestHarness::new();
+    let allocator = harness.create_allocator();
+    let allocator = Arc::new(allocator);
+
+    let pool_info = vk_mem::PoolCreateInfo {
+        memory_type_index: 0,
+        block_size: 64 * 1024 * 1024,
+        max_block_count: 1,
+        ..Default::default()
+    };
+
+    let pool = allocator.create_pool(&pool_info).unwrap();
+    let pool_name = std::ffi::CString::new("MyTestPool").unwrap();
+    pool.set_name(Some(&pool_name));
+
+    let retrieved_name = pool.name().unwrap();
+    assert_eq!(retrieved_name, pool_name.as_c_str());
+    
+    pool.set_name(None);
+    assert!(pool.name().is_none());
+}
+
+#[test]
+fn test_allocator_pool_from_into_raw() {
+    let harness = TestHarness::new();
+    let allocator = harness.create_allocator();
+    let allocator = Arc::new(allocator);
+
+    let pool_info = vk_mem::PoolCreateInfo {
+        memory_type_index: 0,
+        block_size: 64 * 1024 * 1024,
+        max_block_count: 1,
+        ..Default::default()
+    };
+
+    let pool = allocator.create_pool(&pool_info).unwrap();
+    
+    let (raw_pool, alloc) = pool.into_raw_parts();
+    assert!(!raw_pool.is_null());
+    
+    // Reconstruct
+    let pool = unsafe { vk_mem::AllocatorPool::from_raw_parts(raw_pool, alloc) };
+    let stats = pool.get_statistics().unwrap();
+    assert_eq!(stats.blockCount, 0);
+}
+
+#[test]
+fn test_allocator_allocate_pages() {
+    let harness = TestHarness::new();
+    let allocator = harness.create_allocator();
+    let allocator = Arc::new(allocator);
+    
+    let buffer_info = ash::vk::BufferCreateInfo::default()
+        .size(1024)
+        .usage(ash::vk::BufferUsageFlags::UNIFORM_BUFFER);
+        
+    unsafe {
+      let reqs = harness.device.get_buffer_memory_requirements(harness.device.create_buffer(&buffer_info, None).unwrap());
+      let allocation_info = vk_mem::AllocationCreateInfo {
+          usage: vk_mem::MemoryUsage::Auto,
+          ..Default::default()
+      };
+      
+      let mut allocations = allocator.allocate_memory_pages(&reqs, &allocation_info, 3).unwrap();
+      assert_eq!(allocations.len(), 3);
+      
+      for mut a in allocations.drain(..) {
+          allocator.free_memory(&mut a);
+      }
     }
 }
 
