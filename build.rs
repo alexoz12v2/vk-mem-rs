@@ -29,9 +29,12 @@ fn main() {
     //#define VMA_HEAVY_ASSERT(expr) assert(expr)
     //#define VMA_USE_STL_CONTAINERS 1
     //#define VMA_DEDICATED_ALLOCATION 0
-    //#define VMA_DEBUG_MARGIN 16
-    //#define VMA_DEBUG_DETECT_CORRUPTION 1
-    //#define VMA_DEBUG_INITIALIZE_ALLOCATIONS 1
+    #[cfg(feature = "vma-debug")]
+    {
+        build.define("VMA_DEBUG_MARGIN", "16");
+        build.define("VMA_DEBUG_DETECT_CORRUPTION", "1");
+        build.define("VMA_DEBUG_INITIALIZE_ALLOCATIONS", "1");
+    }
     //#define VMA_DEBUG_MIN_BUFFER_IMAGE_GRANULARITY 256
 
     #[cfg(feature = "recording")]
