@@ -382,7 +382,7 @@ fn test_allocator_pool_statistics() {
 
     let detailed_stats = pool.calculate_statistics().unwrap();
     assert_eq!(detailed_stats.statistics.blockCount, 0);
-    
+
     // Create an allocation to test again
     let buffer_info = ash::vk::BufferCreateInfo::default()
         .size(1024)
@@ -391,15 +391,15 @@ fn test_allocator_pool_statistics() {
         usage: vk_mem::MemoryUsage::Auto,
         ..Default::default()
     };
-    
+
     unsafe {
-      let (buffer, mut allocation) = pool.create_buffer(&buffer_info, &allocation_info).unwrap();
-      
-      let detailed_stats2 = pool.calculate_statistics().unwrap();
-      assert_eq!(detailed_stats2.statistics.blockCount, 1);
-      assert_eq!(detailed_stats2.statistics.allocationCount, 1);
-      
-      allocator.destroy_buffer(buffer, &mut allocation);
+        let (buffer, mut allocation) = pool.create_buffer(&buffer_info, &allocation_info).unwrap();
+
+        let detailed_stats2 = pool.calculate_statistics().unwrap();
+        assert_eq!(detailed_stats2.statistics.blockCount, 1);
+        assert_eq!(detailed_stats2.statistics.allocationCount, 1);
+
+        allocator.destroy_buffer(buffer, &mut allocation);
     }
 }
 
@@ -422,7 +422,7 @@ fn test_allocator_pool_name() {
 
     let retrieved_name = pool.name().unwrap();
     assert_eq!(retrieved_name, pool_name.as_c_str());
-    
+
     pool.set_name(None);
     assert!(pool.name().is_none());
 }
@@ -441,10 +441,10 @@ fn test_allocator_pool_from_into_raw() {
     };
 
     let pool = allocator.create_pool(&pool_info).unwrap();
-    
+
     let (raw_pool, alloc) = pool.into_raw_parts();
     assert!(!raw_pool.is_null());
-    
+
     // Reconstruct
     let pool = unsafe { vk_mem::AllocatorPool::from_raw_parts(raw_pool, alloc) };
     let stats = pool.get_statistics().unwrap();
@@ -456,24 +456,28 @@ fn test_allocator_allocate_pages() {
     let harness = TestHarness::new();
     let allocator = harness.create_allocator();
     let allocator = Arc::new(allocator);
-    
+
     let buffer_info = ash::vk::BufferCreateInfo::default()
         .size(1024)
         .usage(ash::vk::BufferUsageFlags::UNIFORM_BUFFER);
-        
+
     unsafe {
-      let reqs = harness.device.get_buffer_memory_requirements(harness.device.create_buffer(&buffer_info, None).unwrap());
-      let allocation_info = vk_mem::AllocationCreateInfo {
-          usage: vk_mem::MemoryUsage::Auto,
-          ..Default::default()
-      };
-      
-      let mut allocations = allocator.allocate_memory_pages(&reqs, &allocation_info, 3).unwrap();
-      assert_eq!(allocations.len(), 3);
-      
-      for mut a in allocations.drain(..) {
-          allocator.free_memory(&mut a);
-      }
+        let reqs = harness.device.get_buffer_memory_requirements(
+            harness.device.create_buffer(&buffer_info, None).unwrap(),
+        );
+        let allocation_info = vk_mem::AllocationCreateInfo {
+            usage: vk_mem::MemoryUsage::Auto,
+            ..Default::default()
+        };
+
+        let mut allocations = allocator
+            .allocate_memory_pages(&reqs, &allocation_info, 3)
+            .unwrap();
+        assert_eq!(allocations.len(), 3);
+
+        for mut a in allocations.drain(..) {
+            allocator.free_memory(&mut a);
+        }
     }
 }
 
