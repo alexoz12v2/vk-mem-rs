@@ -26,7 +26,7 @@ pub type RawVirtualAllocationHandle = ffi::VmaVirtualAllocation;
 /// Main allocator object
 pub struct Allocator {
     /// Pointer to internal VmaAllocator instance
-    internal: RawAllocatorHandle,
+    pub internal: RawAllocatorHandle,
 }
 
 // Allocator is internally thread safe unless AllocatorCreateFlags::EXTERNALLY_SYNCHRONIZED is used (then you need to add synchronization!)
