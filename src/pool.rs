@@ -1,36 +1,30 @@
 use alloc::{sync::Arc, vec};
-use core::{ffi::CStr, mem::ManuallyDrop, ops::Deref, ptr::null_mut};
+use core::{ffi::CStr, mem::ManuallyDrop, ptr::null_mut};
 
 use crate::ffi;
 use crate::Allocation;
 use crate::AllocationCreateInfo;
 use crate::AllocationInfo;
-use crate::Allocator;
+use crate::{Allocator, AllocatorView, AsAllocatorView};
 use crate::PoolCreateInfo;
 use crate::RawPoolHandle;
 use ash::prelude::VkResult;
 use ash::vk;
 
 /// Represents a custom memory pool.
-pub struct AllocatorPool<A: Deref<Target = Allocator> = Arc<Allocator>> {
+pub struct AllocatorPool<A: AsAllocatorView = Arc<Allocator>> {
     pub(crate) allocator: A,
     pub(crate) pool: ffi::VmaPool,
 }
-unsafe impl<A: Deref<Target = Allocator> + Send> Send for AllocatorPool<A> {}
-unsafe impl<A: Deref<Target = Allocator> + Sync> Sync for AllocatorPool<A> {}
+unsafe impl<A: AsAllocatorView + Send> Send for AllocatorPool<A> {}
+unsafe impl<A: AsAllocatorView + Sync> Sync for AllocatorPool<A> {}
 
-impl Allocator {
-    /// Allocates Vulkan device memory and creates an `AllocatorPool` object.
-    pub fn create_pool(self: &Arc<Self>, create_info: &PoolCreateInfo) -> VkResult<AllocatorPool> {
-        let (pool, _) = self.create_pool_with_ref(create_info)?.into_raw_parts();
-        Ok(unsafe { AllocatorPool::from_raw_parts(pool, self.clone()) })
-    }
-
+impl AllocatorView {
     /// Allocates Vulkan device memory and creates an `AllocatorPool` object.
     pub fn create_pool_with_ref(
         &self,
         create_info: &PoolCreateInfo,
-    ) -> VkResult<AllocatorPool<&Self>> {
+    ) -> VkResult<AllocatorPool<AllocatorView>> {
         unsafe {
             let mut ffi_pool: ffi::VmaPool = core::mem::zeroed();
             let raw_info = ffi::VmaPoolCreateInfo {
@@ -44,35 +38,43 @@ impl Allocator {
                 pMemoryAllocateNext: create_info.memory_allocate_next as *mut core::ffi::c_void,
             };
             ffi::vmaCreatePool(self.internal, &raw_info, &mut ffi_pool).result()?;
-            Ok(AllocatorPool::from_raw_parts(ffi_pool, self))
+            Ok(AllocatorPool::from_raw_parts(ffi_pool, *self))
         }
+    }
+
+    pub fn default_pool_with_ref(&self) -> AllocatorPool<AllocatorView> {
+        unsafe { AllocatorPool::from_raw_parts(null_mut(), *self) }
+    }
+}
+
+impl Allocator {
+    /// Allocates Vulkan device memory and creates an `AllocatorPool` object.
+    pub fn create_pool(self: &Arc<Self>, create_info: &PoolCreateInfo) -> VkResult<AllocatorPool> {
+        let (pool, _) = self.create_pool_with_ref(create_info)?.into_raw_parts();
+        Ok(unsafe { AllocatorPool::from_raw_parts(pool, self.clone()) })
     }
 
     pub fn default_pool(self: &Arc<Self>) -> AllocatorPool {
         unsafe { AllocatorPool::from_raw_parts(null_mut(), self.clone()) }
     }
-
-    pub fn default_pool_with_ref(self: &Self) -> AllocatorPool<&Self> {
-        unsafe { AllocatorPool::from_raw_parts(null_mut(), self) }
-    }
 }
 
-impl<A: Deref<Target = Allocator>> Drop for AllocatorPool<A> {
+impl<A: AsAllocatorView> Drop for AllocatorPool<A> {
     fn drop(&mut self) {
         unsafe {
-            ffi::vmaDestroyPool(self.allocator.internal, self.pool);
+            ffi::vmaDestroyPool(self.allocator.as_allocator_view().internal, self.pool);
         }
     }
 }
 
-impl<A: Deref<Target = Allocator>> AllocatorPool<A> {
+impl<A: AsAllocatorView> AllocatorPool<A> {
     pub fn set_name(&self, name: Option<&CStr>) {
         if self.pool.is_null() {
             return;
         }
         unsafe {
             ffi::vmaSetPoolName(
-                self.allocator.internal,
+                self.allocator.as_allocator_view().internal,
                 self.pool,
                 name.map_or(core::ptr::null(), CStr::as_ptr),
             );
@@ -84,7 +86,7 @@ impl<A: Deref<Target = Allocator>> AllocatorPool<A> {
         }
         let mut ptr: *const core::ffi::c_char = core::ptr::null();
         unsafe {
-            ffi::vmaGetPoolName(self.allocator.internal, self.pool, &mut ptr);
+            ffi::vmaGetPoolName(self.allocator.as_allocator_view().internal, self.pool, &mut ptr);
             if ptr.is_null() {
                 return None;
             }
@@ -95,7 +97,7 @@ impl<A: Deref<Target = Allocator>> AllocatorPool<A> {
     pub fn get_statistics(&self) -> VkResult<ffi::VmaStatistics> {
         unsafe {
             let mut pool_stats: ffi::VmaStatistics = core::mem::zeroed();
-            ffi::vmaGetPoolStatistics(self.allocator.internal, self.pool, &mut pool_stats);
+            ffi::vmaGetPoolStatistics(self.allocator.as_allocator_view().internal, self.pool, &mut pool_stats);
             Ok(pool_stats)
         }
     }
@@ -104,7 +106,7 @@ impl<A: Deref<Target = Allocator>> AllocatorPool<A> {
     pub fn calculate_statistics(&self) -> VkResult<ffi::VmaDetailedStatistics> {
         unsafe {
             let mut pool_stats: ffi::VmaDetailedStatistics = core::mem::zeroed();
-            ffi::vmaCalculatePoolStatistics(self.allocator.internal, self.pool, &mut pool_stats);
+            ffi::vmaCalculatePoolStatistics(self.allocator.as_allocator_view().internal, self.pool, &mut pool_stats);
             Ok(pool_stats)
         }
     }
@@ -122,7 +124,7 @@ impl<A: Deref<Target = Allocator>> AllocatorPool<A> {
     ///   `VMA_ASSERT` is also fired in that case.
     /// - Other value: Error returned by Vulkan, e.g. memory mapping failure.
     pub fn check_corruption(&self) -> VkResult<()> {
-        unsafe { ffi::vmaCheckPoolCorruption(self.allocator.internal, self.pool).result() }
+        unsafe { ffi::vmaCheckPoolCorruption(self.allocator.as_allocator_view().internal, self.pool).result() }
     }
 
     /// Decomposes the `AllocatorPool` into a raw handle and a pointer to the allocator the pool is
@@ -142,8 +144,6 @@ impl<A: Deref<Target = Allocator>> AllocatorPool<A> {
     ///
     /// `handle` must be a valid pool that has been allocated from `allocator`.
     ///
-    /// `allocator` must have a well-behaved [`Deref`]-implementation.
-    ///
     /// Either the ownership of the pool needs to be transferred,
     /// or the caller must make sure that the returned value never gets dropped.
     pub unsafe fn from_raw_parts(pool_handle: RawPoolHandle, allocator: A) -> Self {
@@ -155,7 +155,7 @@ impl<A: Deref<Target = Allocator>> AllocatorPool<A> {
 }
 
 pub trait Alloc {
-    fn allocator(&self) -> &Allocator;
+    fn allocator(&self) -> AllocatorView;
     fn pool(&self) -> RawPoolHandle;
     /// Helps to find memory type index, given memory type bits and allocation info.
     ///
@@ -515,9 +515,9 @@ pub trait Alloc {
     }
 }
 
-impl<A: Deref<Target = Allocator>> Alloc for AllocatorPool<A> {
-    fn allocator(&self) -> &Allocator {
-        self.allocator.deref()
+impl<A: AsAllocatorView> Alloc for AllocatorPool<A> {
+    fn allocator(&self) -> AllocatorView {
+        self.allocator.as_allocator_view()
     }
 
     fn pool(&self) -> RawPoolHandle {
@@ -525,8 +525,17 @@ impl<A: Deref<Target = Allocator>> Alloc for AllocatorPool<A> {
     }
 }
 impl Alloc for Allocator {
-    fn allocator(&self) -> &Allocator {
-        self
+    fn allocator(&self) -> AllocatorView {
+        self.as_allocator_view()
+    }
+
+    fn pool(&self) -> RawPoolHandle {
+        core::ptr::null_mut()
+    }
+}
+impl Alloc for AllocatorView {
+    fn allocator(&self) -> AllocatorView {
+        *self
     }
 
     fn pool(&self) -> RawPoolHandle {

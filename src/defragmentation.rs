@@ -1,12 +1,12 @@
 use crate::ffi;
-use crate::Allocator;
+use crate::AllocatorView;
 use ash::prelude::VkResult;
 use ash::vk;
 
 pub use ffi::VmaDefragmentationMove as DefragmentationMove;
 pub use ffi::VmaDefragmentationStats as DefragmentationStats;
 pub struct DefragmentationContext<'a> {
-    allocator: &'a Allocator,
+    allocator: &'a AllocatorView,
     raw: ffi::VmaDefragmentationContext,
 }
 
@@ -60,7 +60,7 @@ impl<'a> DefragmentationContext<'a> {
     }
 }
 
-impl Allocator {
+impl AllocatorView {
     /// Begins defragmentation process.
     ///
     /// ## Returns

@@ -9,10 +9,12 @@ mod defragmentation;
 pub mod ffi;
 mod pool;
 mod virtual_block;
+pub mod allocator_view;
 pub use definitions::*;
 pub use defragmentation::*;
 pub use pool::*;
 pub use virtual_block::*;
+pub use allocator_view::*;
 
 use ash::prelude::VkResult;
 use ash::vk;
@@ -23,201 +25,30 @@ pub type RawPoolHandle = ffi::VmaPool;
 pub type RawVirtualBlockHandle = ffi::VmaVirtualBlock;
 pub type RawVirtualAllocationHandle = ffi::VmaVirtualAllocation;
 
-/// Main allocator object
-pub struct Allocator {
+/// A view of an allocator that doesn't own it and won't destroy it when dropped.
+#[derive(Clone, Copy, Debug)]
+pub struct AllocatorView {
     /// Pointer to internal VmaAllocator instance
     pub internal: RawAllocatorHandle,
 }
 
-// Allocator is internally thread safe unless AllocatorCreateFlags::EXTERNALLY_SYNCHRONIZED is used (then you need to add synchronization!)
-unsafe impl Send for Allocator {}
-unsafe impl Sync for Allocator {}
+// AllocatorView is internally thread safe unless AllocatorCreateFlags::EXTERNALLY_SYNCHRONIZED is used
+unsafe impl Send for AllocatorView {}
+unsafe impl Sync for AllocatorView {}
 
-/// Represents single memory allocation.
-///
-/// It may be either dedicated block of `vk::DeviceMemory` or a specific region of a
-/// bigger block of this type plus unique offset.
-///
-/// Although the library provides convenience functions that create a Vulkan buffer or image,
-/// allocate memory for it and bind them together, binding of the allocation to a buffer or an
-/// image is out of scope of the allocation itself.
-///
-/// Allocation object can exist without buffer/image bound, binding can be done manually by
-/// the user, and destruction of it can be done independently of destruction of the allocation.
-///
-/// The object also remembers its size and some other information. To retrieve this information,
-/// use `Allocator::get_allocation_info`.
-///
-/// Some kinds allocations can be in lost state.
-#[derive(Clone, Copy, Debug)]
-pub struct Allocation(RawAllocationHandle);
-unsafe impl Send for Allocation {}
-unsafe impl Sync for Allocation {}
-
-impl Allocation {
-    /// Returns the raw handle of this allocation
-    pub fn get_raw(&self) -> RawAllocationHandle {
-        self.0
-    }
-
-    /// Imports an allocation from a raw handle
-    ///
-    /// # Safety
-    ///
-    /// The handle must be a valid allocation
-    pub unsafe fn from_raw(handle: RawAllocationHandle) -> Self {
-        Allocation(handle)
-    }
-}
-
-impl Allocator {
-    /// Construct a new `Allocator` using the provided options.
-    ///
-    /// # Safety
-    /// [`AllocatorCreateInfo::instance`], [`AllocatorCreateInfo::device`] and
-    /// [`AllocatorCreateInfo::physical_device`] must be valid throughout the lifetime of the allocator.
-    pub unsafe fn new(create_info: AllocatorCreateInfo) -> VkResult<Self> {
-        unsafe extern "system" fn get_instance_proc_addr_stub(
-            _instance: vk::Instance,
-            _p_name: *const core::ffi::c_char,
-        ) -> vk::PFN_vkVoidFunction {
-            panic!("VMA_DYNAMIC_VULKAN_FUNCTIONS is unsupported")
-        }
-
-        unsafe extern "system" fn get_get_device_proc_stub(
-            _device: vk::Device,
-            _p_name: *const core::ffi::c_char,
-        ) -> vk::PFN_vkVoidFunction {
-            panic!("VMA_DYNAMIC_VULKAN_FUNCTIONS is unsupported")
-        }
-
-        let mut raw_create_info = ffi::VmaAllocatorCreateInfo {
-            flags: create_info.flags.bits(),
-            physicalDevice: create_info.physical_device,
-            device: create_info.device.handle(),
-            preferredLargeHeapBlockSize: create_info.preferred_large_heap_block_size,
-            pAllocationCallbacks: create_info
-                .allocation_callbacks
-                .map(|a| unsafe { core::mem::transmute(a) })
-                .unwrap_or(core::ptr::null()),
-            pDeviceMemoryCallbacks: create_info
-                .device_memory_callbacks
-                .map(|a| a as *const _)
-                .unwrap_or(core::ptr::null()),
-            pHeapSizeLimit: if create_info.heap_size_limits.is_empty() {
-                core::ptr::null()
-            } else {
-                create_info.heap_size_limits.as_ptr()
-            },
-            instance: create_info.instance.handle(),
-            vulkanApiVersion: create_info.vulkan_api_version,
-            pVulkanFunctions: core::ptr::null(),
-            pTypeExternalMemoryHandleTypes: if create_info
-                .type_external_memory_handle_types
-                .is_empty()
-            {
-                core::ptr::null()
-            } else {
-                create_info.type_external_memory_handle_types.as_ptr()
-            },
-        };
-
-        #[cfg(any(feature = "loaded", feature = "force-loaded"))]
-        let routed_functions = ffi::VmaVulkanFunctions {
-            vkGetInstanceProcAddr: get_instance_proc_addr_stub,
-            vkGetDeviceProcAddr: get_get_device_proc_stub,
-            vkGetPhysicalDeviceProperties: create_info
-                .instance
-                .fp_v1_0()
-                .get_physical_device_properties,
-            vkGetPhysicalDeviceMemoryProperties: create_info
-                .instance
-                .fp_v1_0()
-                .get_physical_device_memory_properties,
-            vkAllocateMemory: create_info.device.fp_v1_0().allocate_memory,
-            vkFreeMemory: create_info.device.fp_v1_0().free_memory,
-            vkMapMemory: create_info.device.fp_v1_0().map_memory,
-            vkUnmapMemory: create_info.device.fp_v1_0().unmap_memory,
-            vkFlushMappedMemoryRanges: create_info.device.fp_v1_0().flush_mapped_memory_ranges,
-            vkInvalidateMappedMemoryRanges: create_info
-                .device
-                .fp_v1_0()
-                .invalidate_mapped_memory_ranges,
-            vkBindBufferMemory: create_info.device.fp_v1_0().bind_buffer_memory,
-            vkBindImageMemory: create_info.device.fp_v1_0().bind_image_memory,
-            vkGetBufferMemoryRequirements: create_info
-                .device
-                .fp_v1_0()
-                .get_buffer_memory_requirements,
-            vkGetImageMemoryRequirements: create_info
-                .device
-                .fp_v1_0()
-                .get_image_memory_requirements,
-            vkCreateBuffer: create_info.device.fp_v1_0().create_buffer,
-            vkDestroyBuffer: create_info.device.fp_v1_0().destroy_buffer,
-            vkCreateImage: create_info.device.fp_v1_0().create_image,
-            vkDestroyImage: create_info.device.fp_v1_0().destroy_image,
-            vkCmdCopyBuffer: create_info.device.fp_v1_0().cmd_copy_buffer,
-            vkGetBufferMemoryRequirements2KHR: create_info
-                .device
-                .fp_v1_1()
-                .get_buffer_memory_requirements2,
-            vkGetImageMemoryRequirements2KHR: create_info
-                .device
-                .fp_v1_1()
-                .get_image_memory_requirements2,
-            vkBindBufferMemory2KHR: create_info.device.fp_v1_1().bind_buffer_memory2,
-            vkBindImageMemory2KHR: create_info.device.fp_v1_1().bind_image_memory2,
-            vkGetPhysicalDeviceMemoryProperties2KHR: create_info
-                .instance
-                .fp_v1_1()
-                .get_physical_device_memory_properties2,
-            vkGetDeviceBufferMemoryRequirements: create_info
-                .device
-                .fp_v1_3()
-                .get_device_buffer_memory_requirements,
-            vkGetDeviceImageMemoryRequirements: create_info
-                .device
-                .fp_v1_3()
-                .get_device_image_memory_requirements,
-            vkGetMemoryWin32HandleKHR: core::ptr::null_mut(),
-        };
-        #[cfg(any(feature = "loaded", feature = "force-loaded"))]
-        {
-            raw_create_info.pVulkanFunctions = &routed_functions;
-        }
-        unsafe {
-            let mut internal: ffi::VmaAllocator = core::mem::zeroed();
-            ffi::vmaCreateAllocator(&raw_create_info, &mut internal).result()?;
-
-            Ok(Allocator { internal })
-        }
-    }
-
-    /// Consumes the allocator without dropping it and returns the underlying handle.
-    ///
-    /// Ownership is transferred to the caller.
-    pub fn into_raw(self) -> RawAllocatorHandle {
-        let handle = self.get_raw();
-        core::mem::forget(self);
-        handle
-    }
-
-    /// Gets the underlying raw handle
-    pub fn get_raw(&self) -> RawAllocatorHandle {
-        self.internal
-    }
-
+impl AllocatorView {
     /// Imports an allocator from a raw handle.
     ///
     /// # Safety
     ///
     /// `handle` is a valid allocator handle.
-    ///
-    /// Either the ownership of the allocator needs to be transferred,
-    /// or the caller must make sure that the returned value never gets dropped.
     pub unsafe fn from_raw(handle: RawAllocatorHandle) -> Self {
         Self { internal: handle }
+    }
+
+    /// Gets the underlying raw handle
+    pub fn get_raw(&self) -> RawAllocatorHandle {
+        self.internal
     }
 
     /// The allocator fetches `vk::PhysicalDeviceProperties` from the physical device.
@@ -712,6 +543,180 @@ impl Allocator {
         flags
     }
 }
+
+/// Represents single memory allocation.
+///
+/// It may be either dedicated block of `vk::DeviceMemory` or a specific region of a
+/// bigger block of this type plus unique offset.
+///
+/// Although the library provides convenience functions that create a Vulkan buffer or image,
+/// allocate memory for it and bind them together, binding of the allocation to a buffer or an
+/// image is out of scope of the allocation itself.
+///
+/// Allocation object can exist without buffer/image bound, binding can be done manually by
+/// the user, and destruction of it can be done independently of destruction of the allocation.
+///
+/// The object also remembers its size and some other information. To retrieve this information,
+/// use `Allocator::get_allocation_info`.
+///
+/// Some kinds allocations can be in lost state.
+#[derive(Clone, Copy, Debug)]
+pub struct Allocation(RawAllocationHandle);
+unsafe impl Send for Allocation {}
+unsafe impl Sync for Allocation {}
+
+impl Allocation {
+    /// Returns the raw handle of this allocation
+    pub fn get_raw(&self) -> RawAllocationHandle {
+        self.0
+    }
+
+    /// Imports an allocation from a raw handle
+    ///
+    /// # Safety
+    ///
+    /// The handle must be a valid allocation
+    pub unsafe fn from_raw(handle: RawAllocationHandle) -> Self {
+        Allocation(handle)
+    }
+}
+
+/// Main allocator object
+pub struct Allocator {
+    /// Pointer to internal VmaAllocator instance
+    pub internal: RawAllocatorHandle,
+}
+
+impl Allocator {
+    pub unsafe fn new(create_info: AllocatorCreateInfo) -> VkResult<Self> {
+        unsafe extern "system" fn get_instance_proc_addr_stub(
+            _instance: vk::Instance,
+            _p_name: *const core::ffi::c_char,
+        ) -> vk::PFN_vkVoidFunction {
+            panic!("VMA_DYNAMIC_VULKAN_FUNCTIONS is unsupported")
+        }
+
+        unsafe extern "system" fn get_get_device_proc_stub(
+            _device: vk::Device,
+            _p_name: *const core::ffi::c_char,
+        ) -> vk::PFN_vkVoidFunction {
+            panic!("VMA_DYNAMIC_VULKAN_FUNCTIONS is unsupported")
+        }
+
+        let mut raw_create_info = ffi::VmaAllocatorCreateInfo {
+            flags: create_info.flags.bits(),
+            physicalDevice: create_info.physical_device,
+            device: create_info.device.handle(),
+            preferredLargeHeapBlockSize: create_info.preferred_large_heap_block_size,
+            pAllocationCallbacks: create_info
+                .allocation_callbacks
+                .map(|a| unsafe { core::mem::transmute(a) })
+                .unwrap_or(core::ptr::null()),
+            pDeviceMemoryCallbacks: create_info
+                .device_memory_callbacks
+                .map(|a| a as *const _)
+                .unwrap_or(core::ptr::null()),
+            pHeapSizeLimit: if create_info.heap_size_limits.is_empty() {
+                core::ptr::null()
+            } else {
+                create_info.heap_size_limits.as_ptr()
+            },
+            instance: create_info.instance.handle(),
+            vulkanApiVersion: create_info.vulkan_api_version,
+            pVulkanFunctions: core::ptr::null(),
+            pTypeExternalMemoryHandleTypes: if create_info
+                .type_external_memory_handle_types
+                .is_empty()
+            {
+                core::ptr::null()
+            } else {
+                create_info.type_external_memory_handle_types.as_ptr()
+            },
+        };
+
+        #[cfg(any(feature = "loaded", feature = "force-loaded"))]
+        let routed_functions = ffi::VmaVulkanFunctions {
+            vkGetInstanceProcAddr: get_instance_proc_addr_stub,
+            vkGetDeviceProcAddr: get_get_device_proc_stub,
+            vkGetPhysicalDeviceProperties: create_info
+                .instance
+                .fp_v1_0()
+                .get_physical_device_properties,
+            vkGetPhysicalDeviceMemoryProperties: create_info
+                .instance
+                .fp_v1_0()
+                .get_physical_device_memory_properties,
+            vkAllocateMemory: create_info.device.fp_v1_0().allocate_memory,
+            vkFreeMemory: create_info.device.fp_v1_0().free_memory,
+            vkMapMemory: create_info.device.fp_v1_0().map_memory,
+            vkUnmapMemory: create_info.device.fp_v1_0().unmap_memory,
+            vkFlushMappedMemoryRanges: create_info.device.fp_v1_0().flush_mapped_memory_ranges,
+            vkInvalidateMappedMemoryRanges: create_info
+                .device
+                .fp_v1_0()
+                .invalidate_mapped_memory_ranges,
+            vkBindBufferMemory: create_info.device.fp_v1_0().bind_buffer_memory,
+            vkBindImageMemory: create_info.device.fp_v1_0().bind_image_memory,
+            vkGetBufferMemoryRequirements: create_info
+                .device
+                .fp_v1_0()
+                .get_buffer_memory_requirements,
+            vkGetImageMemoryRequirements: create_info
+                .device
+                .fp_v1_0()
+                .get_image_memory_requirements,
+            vkCreateBuffer: create_info.device.fp_v1_0().create_buffer,
+            vkDestroyBuffer: create_info.device.fp_v1_0().destroy_buffer,
+            vkCreateImage: create_info.device.fp_v1_0().create_image,
+            vkDestroyImage: create_info.device.fp_v1_0().destroy_image,
+            vkCmdCopyBuffer: create_info.device.fp_v1_0().cmd_copy_buffer,
+            vkGetBufferMemoryRequirements2KHR: create_info
+                .device
+                .fp_v1_1()
+                .get_buffer_memory_requirements2,
+            vkGetImageMemoryRequirements2KHR: create_info
+                .device
+                .fp_v1_1()
+                .get_image_memory_requirements2,
+            vkBindBufferMemory2KHR: create_info.device.fp_v1_1().bind_buffer_memory2,
+            vkBindImageMemory2KHR: create_info.device.fp_v1_1().bind_image_memory2,
+            vkGetPhysicalDeviceMemoryProperties2KHR: create_info
+                .instance
+                .fp_v1_1()
+                .get_physical_device_memory_properties2,
+            vkGetDeviceBufferMemoryRequirements: create_info
+                .device
+                .fp_v1_3()
+                .get_device_buffer_memory_requirements,
+            vkGetDeviceImageMemoryRequirements: create_info
+                .device
+                .fp_v1_3()
+                .get_device_image_memory_requirements,
+            vkGetMemoryWin32HandleKHR: core::ptr::null_mut(),
+        };
+        #[cfg(any(feature = "loaded", feature = "force-loaded"))]
+        {
+            raw_create_info.pVulkanFunctions = &routed_functions;
+        }
+        unsafe {
+            let mut internal: ffi::VmaAllocator = core::mem::zeroed();
+            ffi::vmaCreateAllocator(&raw_create_info, &mut internal).result()?;
+
+            Ok(Allocator { internal })
+        }
+    }
+}
+
+impl core::ops::Deref for Allocator {
+    type Target = AllocatorView;
+    fn deref(&self) -> &Self::Target {
+        unsafe { &*(self as *const Allocator as *const AllocatorView) }
+    }
+}
+
+// Allocator is internally thread safe unless AllocatorCreateFlags::EXTERNALLY_SYNCHRONIZED is used (then you need to add synchronization!)
+unsafe impl Send for Allocator {}
+unsafe impl Sync for Allocator {}
 
 /// Custom `Drop` implementation to clean up internal allocation instance
 impl Drop for Allocator {
