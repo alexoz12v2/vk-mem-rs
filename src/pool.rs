@@ -5,9 +5,9 @@ use crate::ffi;
 use crate::Allocation;
 use crate::AllocationCreateInfo;
 use crate::AllocationInfo;
-use crate::{Allocator, AllocatorView, AsAllocatorView};
 use crate::PoolCreateInfo;
 use crate::RawPoolHandle;
+use crate::{Allocator, AllocatorView, AsAllocatorView};
 use ash::prelude::VkResult;
 use ash::vk;
 
@@ -86,7 +86,11 @@ impl<A: AsAllocatorView> AllocatorPool<A> {
         }
         let mut ptr: *const core::ffi::c_char = core::ptr::null();
         unsafe {
-            ffi::vmaGetPoolName(self.allocator.as_allocator_view().internal, self.pool, &mut ptr);
+            ffi::vmaGetPoolName(
+                self.allocator.as_allocator_view().internal,
+                self.pool,
+                &mut ptr,
+            );
             if ptr.is_null() {
                 return None;
             }
@@ -97,7 +101,11 @@ impl<A: AsAllocatorView> AllocatorPool<A> {
     pub fn get_statistics(&self) -> VkResult<ffi::VmaStatistics> {
         unsafe {
             let mut pool_stats: ffi::VmaStatistics = core::mem::zeroed();
-            ffi::vmaGetPoolStatistics(self.allocator.as_allocator_view().internal, self.pool, &mut pool_stats);
+            ffi::vmaGetPoolStatistics(
+                self.allocator.as_allocator_view().internal,
+                self.pool,
+                &mut pool_stats,
+            );
             Ok(pool_stats)
         }
     }
@@ -106,7 +114,11 @@ impl<A: AsAllocatorView> AllocatorPool<A> {
     pub fn calculate_statistics(&self) -> VkResult<ffi::VmaDetailedStatistics> {
         unsafe {
             let mut pool_stats: ffi::VmaDetailedStatistics = core::mem::zeroed();
-            ffi::vmaCalculatePoolStatistics(self.allocator.as_allocator_view().internal, self.pool, &mut pool_stats);
+            ffi::vmaCalculatePoolStatistics(
+                self.allocator.as_allocator_view().internal,
+                self.pool,
+                &mut pool_stats,
+            );
             Ok(pool_stats)
         }
     }
@@ -124,7 +136,10 @@ impl<A: AsAllocatorView> AllocatorPool<A> {
     ///   `VMA_ASSERT` is also fired in that case.
     /// - Other value: Error returned by Vulkan, e.g. memory mapping failure.
     pub fn check_corruption(&self) -> VkResult<()> {
-        unsafe { ffi::vmaCheckPoolCorruption(self.allocator.as_allocator_view().internal, self.pool).result() }
+        unsafe {
+            ffi::vmaCheckPoolCorruption(self.allocator.as_allocator_view().internal, self.pool)
+                .result()
+        }
     }
 
     /// Decomposes the `AllocatorPool` into a raw handle and a pointer to the allocator the pool is

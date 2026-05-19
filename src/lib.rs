@@ -4,17 +4,17 @@
 extern crate alloc;
 extern crate core;
 
+pub mod allocator_view;
 mod definitions;
 mod defragmentation;
 pub mod ffi;
 mod pool;
 mod virtual_block;
-pub mod allocator_view;
+pub use allocator_view::*;
 pub use definitions::*;
 pub use defragmentation::*;
 pub use pool::*;
 pub use virtual_block::*;
-pub use allocator_view::*;
 
 use ash::prelude::VkResult;
 use ash::vk;

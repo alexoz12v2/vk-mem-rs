@@ -1,5 +1,5 @@
-use alloc::sync::Arc;
 use crate::{Allocator, AllocatorView};
+use alloc::sync::Arc;
 use core::ops::Deref;
 
 pub trait AsAllocatorView {
