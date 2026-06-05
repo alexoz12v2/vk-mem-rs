@@ -624,6 +624,7 @@ impl From<&AllocationCreateInfo> for ffi::VmaAllocationCreateInfo {
             pool: core::ptr::null_mut(),
             pUserData: info.user_data as _,
             priority: info.priority,
+            minAlignment: 0,
         }
     }
 }

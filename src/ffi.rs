@@ -298,6 +298,8 @@ pub struct VmaVulkanFunctions {
     #[doc = " Fetch from \"vkGetDeviceImageMemoryRequirements\" on Vulkan >= 1.3, but you can also fetch it from \"vkGetDeviceImageMemoryRequirementsKHR\" if you enabled extension VK_KHR_maintenance4."]
     pub vkGetDeviceImageMemoryRequirements: PFN_vkGetDeviceImageMemoryRequirements,
     pub vkGetMemoryWin32HandleKHR: *mut core::ffi::c_void,
+    #[doc = " Fetch from \"vkGetPhysicalDeviceProperties2\" on Vulkan >= 1.1, but you can also fetch it from \"vkGetPhysicalDeviceProperties2KHR\" if you enabled extension VK_KHR_get_physical_device_properties2."]
+    pub vkGetPhysicalDeviceProperties2KHR: PFN_vkGetPhysicalDeviceProperties2,
 }
 #[doc = " Description of a Allocator to be created."]
 #[repr(C)]
@@ -399,6 +401,8 @@ pub struct VmaAllocationCreateInfo {
     pub pUserData: *mut core::ffi::c_void,
     #[doc = " \\brief A floating-point value between 0 and 1, indicating the priority of the allocation relative to other memory allocations.\n\nIt is used only when #VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT flag was used during creation of the #VmaAllocator object\nand this allocation ends up as dedicated or is explicitly forced as dedicated using #VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT.\nOtherwise, it has the priority of a memory block where it is placed and this variable is ignored."]
     pub priority: f32,
+    #[doc = " \\\\brief Additional minimum alignment to be used for this allocation. Can be 0.\\n\\nLeave 0 (default) not to impose any additional alignment. If not 0, it must be a power of two."]
+    pub minAlignment: DeviceSize,
 }
 #[doc = " Describes parameter of created #VmaPool."]
 #[repr(C)]

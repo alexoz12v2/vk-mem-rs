@@ -693,6 +693,10 @@ impl Allocator {
                 .fp_v1_3()
                 .get_device_image_memory_requirements,
             vkGetMemoryWin32HandleKHR: core::ptr::null_mut(),
+            vkGetPhysicalDeviceProperties2KHR: create_info
+                .instance
+                .fp_v1_1()
+                .get_physical_device_properties2,
         };
         #[cfg(any(feature = "loaded", feature = "force-loaded"))]
         {

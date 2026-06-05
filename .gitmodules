@@ -3,4 +3,4 @@
 	url = https://github.com/KhronosGroup/Vulkan-Headers
 [submodule "vendor/VulkanMemoryAllocator"]
 	path = vendor/VulkanMemoryAllocator
-	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+	url = https://github.com/alexoz12v2/VulkanMemoryAllocator.git
