@@ -210,6 +210,18 @@ impl AllocatorView {
         ffi::vmaSetAllocationUserData(self.internal, allocation.0, user_data);
     }
 
+    /// Sets a human-readable name for the given allocation.
+    ///
+    /// `name` must be a null-terminated C string or null. The function makes a local
+    /// copy, so the caller does not need to keep it alive after the call.
+    pub unsafe fn set_allocation_name(
+        &self,
+        allocation: &mut Allocation,
+        name: *const core::ffi::c_char,
+    ) {
+        ffi::vmaSetAllocationName(self.internal, allocation.0, name);
+    }
+
     /// Maps memory represented by given allocation and returns pointer to it.
     ///
     /// Maps memory represented by given allocation to make it accessible to CPU code.
